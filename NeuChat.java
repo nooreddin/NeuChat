@@ -15,7 +15,7 @@ public class NeuChat {
 
         ServerSocket serverSocket = null;
         try {
-            serverSocket = new ServerSocket(1201);
+            serverSocket = new ServerSocket(12819);
         } catch (IOException e) {
             e.printStackTrace();
             System.exit(1);

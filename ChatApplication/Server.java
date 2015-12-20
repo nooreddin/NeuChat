@@ -323,4 +323,35 @@ public class Server {
         client.setAcceptAnon(status.equalsIgnoreCase("on"));
         clientView.sendFeedbackMessage(client, "Anonymous messages are: " + status.toUpperCase());
     }
+
+    public void closedConnectionPerformed(Client client) {
+        Room room = client.getRoom();
+        synchronized ((CLIENT_LOCK)) {
+                if (client.getRoom() == null)
+                    return;
+                if (client == room.getOwner()) {
+
+                    Enumeration<Client> clients = room.users();
+                    while (clients.hasMoreElements()) {
+                        Client thisUser = clients.nextElement();
+                        if(thisUser != client)
+                            clientView.sendFeedbackMessage(thisUser, "owner left the room, the chat is closed: " + room);
+                    }
+                    room.clearAll();
+                    removeRoom(room);
+                } else if (client.getRoom() == room) {
+                    room.removeUser(client);
+                    clientView.sendFeedbackMessageToAll(room.users(), "user has left chat: " + client);
+                }
+
+
+            try {
+                client.getSocket().close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            clients.remove(client.getUsername());
+        }
+    }
 }

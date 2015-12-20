@@ -136,6 +136,7 @@ public class Room implements Comparable<Room> {
         owner = null;
     }
 
+
     public boolean banUser(Client user) {
         synchronized (USERS_LOCK) {
             bannedAddresses.add(user.getSocket().getInetAddress());

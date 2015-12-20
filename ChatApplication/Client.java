@@ -37,6 +37,7 @@ public class Client implements Runnable, Comparable<Client> {
 
     @Override
     public void run() {
+        char EOT = 4;
         BufferedReader br = null;
         try
 
@@ -55,8 +56,22 @@ public class Client implements Runnable, Comparable<Client> {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            if (message != null)
-                controller.fireMessageEvent(this, message);
+            if (message != null){
+                if(message.charAt(0) != EOT)
+                    controller.fireMessageEvent(this, message);
+                else
+                {
+                    try {
+
+                        br.close();
+                        socket.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+
         }
         controller.fireConnectionEvent(this);
     }
@@ -86,18 +101,9 @@ public class Client implements Runnable, Comparable<Client> {
         return acceptAnon;
     }
 
-//    public void setAcceptAnon(boolean acceptAnon) {
-//        this.acceptAnon = acceptAnon;
-//    }
-
     public boolean isAcceptPrivate() {
         return acceptPrivate;
     }
-
-//    public void setAcceptPrivate(boolean acceptPrivate) {
-//        this.acceptPrivate = acceptPrivate;
-//    }
-
 
     @Override
     public int compareTo(Client o) {

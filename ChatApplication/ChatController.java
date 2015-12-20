@@ -30,7 +30,7 @@ public class ChatController {
     }
 
     public void fireConnectionEvent(Client client) {
-        server.unregisterClient(client);
+        server.closedConnectionPerformed(client);
     }
 
     public void fireMessageEvent(Client client, String message) {
