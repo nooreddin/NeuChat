@@ -9,6 +9,7 @@ public class Room implements Comparable<Room> {
     public static final int FULL_ROOM = 1;
     public static final int BANNED_USER = 2;
     private static final int MAX_CAPACITY = 40;
+    private static final int PUBLIC_ROOM_CAPACITY = 400;
     private static final Object USERS_LOCK = new Object();
     private static Room publicRoom;
     private final String name;
@@ -181,7 +182,11 @@ public class Room implements Comparable<Room> {
         return MAX_CAPACITY;
     }
 
-    private boolean isFull() {
+    private boolean isFull()
+    {
+        if(this == publicRoom)
+            return  size == PUBLIC_ROOM_CAPACITY;
+
         return size == MAX_CAPACITY;
     }
 

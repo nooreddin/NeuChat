@@ -13,7 +13,12 @@ public class ClientView {
         helpMssage += "/rooms\t\t\tDisplay the name of the available rooms.\n";
         helpMssage += "/join room\t\tJoin to the room.\n";
         helpMssage += "/prv user message\tSend a private message to another user.\n";
+        helpMssage += "/prv on/off\tTurn on or off private messages.\n";
         helpMssage += "/anon user message\tSend an anonymous message to another user.\n";
+        helpMssage += "/anon on/off\tTurn on or off anonimous messages.\n";
+        helpMssage += "/block user \t\tBlock a specific user from private chat.\n";
+        helpMssage += "/unblock user \t\tUnblock a specific user from private chat.\n";
+        helpMssage += "/blocklist \t\t\tDisplay the blocked users list.\n";
         helpMssage += "/ban user\t\tBan a specific user.\n";
         helpMssage += "/unban user\t\tUnban a specific user.\n";
         helpMssage += "/unbanall\t\tUnban all banned users.\n";
@@ -42,15 +47,25 @@ public class ClientView {
         try {
             DataOutputStream writer = new DataOutputStream(client.getSocket().getOutputStream());
 
-            writer.writeChars(message + "\n");
+            writer.writeChars( message + "\n");
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
+    public void sendChatMessage(Client client, String message) {
+
+        sendMessage(client, "\n" + message);
+    }
+
     public void sendMessageToAll(Enumeration<Client> clients, String message) {
         while (clients.hasMoreElements())
             sendMessage(clients.nextElement(), message);
+    }
+
+    public void sendChatMessageToAll(Enumeration<Client> clients, String message) {
+        while (clients.hasMoreElements())
+            sendChatMessage(clients.nextElement(), message);
     }
 
     public void sendErrorMessage(Client client, String message) {

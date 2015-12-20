@@ -4,20 +4,33 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
+import java.util.Collection;
+import java.util.Hashtable;
 
 public class Client implements Runnable, Comparable<Client> {
     private final Socket socket;
     private final String username;
     private ChatController controller;
+
+    public void setAcceptPrivate(boolean acceptPrivate) {
+        this.acceptPrivate = acceptPrivate;
+    }
+
+    public void setAcceptAnon(boolean acceptAnon) {
+        this.acceptAnon = acceptAnon;
+    }
+
     private boolean acceptPrivate = true;
     private boolean acceptAnon = true;
 
     private Room room;
+    private Hashtable<Socket,String> blacklist;
 
     public Client(String username, Socket socket) {
         acceptPrivate = true;
         acceptAnon = true;
 
+        blacklist = new Hashtable<>();
         this.username = username;
         this.socket = socket;
     }
@@ -95,4 +108,28 @@ public class Client implements Runnable, Comparable<Client> {
         return username;
     }
 
+    public void block(Client blockedUser) {
+        blacklist.put(blockedUser.getSocket(), blockedUser.getUsername());
+    }
+
+    public boolean unblock(String username) {
+        Client client = Server.instance().getClient(username);
+        return client != null && blacklist.remove(client.getSocket(), username);
+    }
+
+    public Collection<String> blockedUsers()
+    {
+        return blacklist.values();
+    }
+
+    public boolean isBlocked(Client user1) {
+        return blacklist.containsKey(user1.getSocket());
+    }
+
+    public boolean getAcceptPrivate() {
+        return acceptPrivate;
+    }
+    public boolean getAcceptAnon() {
+        return acceptPrivate;
+    }
 }

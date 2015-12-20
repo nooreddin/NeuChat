@@ -45,16 +45,18 @@ public class Server {
     }
 
     public void unregisterClient(Client client) {
-        server.leaveRoom(client);
-        clientView.sendMessage(client, "BYE");
+        synchronized ((CLIENT_LOCK)) {
+            clientView.sendMessage(client, "BYE");
+            server.leaveRoom(client);
 
-        try {
-            client.getSocket().close();
-        } catch (IOException e) {
-            e.printStackTrace();
+            try {
+                client.getSocket().close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            clients.remove(client.getUsername());
         }
-
-        clients.remove(client.getUsername());
     }
 
     public void makeRoom(Client client, String roomName) {
@@ -121,7 +123,7 @@ public class Server {
                     while (messageList.hasMoreElements()) {
                         Client thisUser = messageList.nextElement();
                         if (thisUser != user)
-                            clientView.sendMessage(thisUser, "* new user joined chat: " + user);
+                            clientView.sendChatMessage(thisUser, "* new user joined chat: " + user);
                     }
                 } else if (insertStatus == Room.FULL_ROOM)
                     clientView.sendErrorMessage(user, "Room is full capacity: " + room + "(" + room.getCapacity() + ")");
@@ -166,15 +168,25 @@ public class Server {
             Client user2 = room.getUser(username2);
             if (user2 == null) {
                 clientView.sendErrorMessage(user1, "the user \"" + username2 + "\" is not in this room.");
-            } else {
+            } else if(user2.isBlocked(user1))
+            {
+                clientView.sendErrorMessage(user1, "User is blocked you: " + user2);
+
+            }
+            else if(user2.getAcceptPrivate())
+            {
                 privateMessage(user1, user2, message);
+            }
+            else
+            {
+                clientView.sendErrorMessage(user1, "User does not accept private messages.");
             }
         }
     }
 
     public void privateMessage(Client user1, Client user2, String message) {
         if (user2.isAcceptPrivate())
-            clientView.sendMessage(user2, "PRV " + user1 + " to " + user2 + ": " + message);
+            clientView.sendChatMessage(user2, "PRV " + user1 + " to " + user2 + ": " + message);
         else
             clientView.sendFeedbackMessage(user1, "user does not accept private messages.");
 
@@ -190,15 +202,19 @@ public class Server {
             Client user2 = room.getUser(username2);
             if (user2 == null) {
                 clientView.sendErrorMessage(user1, "the user \"" + username2 + "\" is not in this room.");
-            } else {
+            } else if(user2.getAcceptAnon()){
                 anonMessage(user1, user2, message);
+            }
+            else
+            {
+                clientView.sendErrorMessage(user1, "User does not accept anonymous messages.");
             }
         }
     }
 
     private void anonMessage(Client user1, Client user2, String message) {
         if (user2.isAcceptAnon())
-            clientView.sendMessage(user2, "ANON to " + user2 + ": " + message);
+            clientView.sendChatMessage(user2, "ANON to " + user2 + ": " + message);
         else
             clientView.sendFeedbackMessage(user1, "user does not accept anonymous messages.");
     }
@@ -206,7 +222,7 @@ public class Server {
     public void publicMessage(Client user, String message) {
         Room room = user.getRoom();
         if (room != null)
-            clientView.sendMessageToAll(room.users(), user + ": " + message);
+            clientView.sendChatMessageToAll(room.users(), user + ": " + message);
         else
             clientView.sendErrorMessage(user, "You need to be inside a room to send message.");
     }
@@ -218,13 +234,13 @@ public class Server {
             Client bannedUser = room.getUser(username2);
             if (room.getOwner() == user) {
                 if (bannedUser == user)
-                    clientView.sendMessage(bannedUser, "Owner cannot be banned: " + user);
+                    clientView.sendErrorMessage(bannedUser, "Owner cannot be banned: " + user);
                 else if (bannedUser != null) {
-                    clientView.sendMessage(bannedUser, "Owner banned you from the room: " + room);
+                    clientView.sendChatMessage(bannedUser, "Owner banned you from the room: " + room);
                     room.banUser(bannedUser);
-                    clientView.sendMessage(user, "User is banned: " + username2);
+                    clientView.sendChatMessageToAll(room.users(), "User is banned: " + username2);
                 } else
-                    clientView.sendMessage(user, "There is no such a user at room: " + username2);
+                    clientView.sendErrorMessage(user, "There is no such a user at room: " + username2);
             } else
                 clientView.sendErrorMessage(user, "You have to be the owner of the room: " + room);
         }
@@ -235,9 +251,9 @@ public class Server {
             Room room = user.getRoom();
             if (room.getOwner() == user) {
                 if (room.unbanUser(username2))
-                    clientView.sendMessage(user, "User is unbanned: " + username2);
+                    clientView.sendFeedbackMessage(user, "User is unbanned: " + username2);
                 else
-                    clientView.sendMessage(user, "There is no such a user at banned list: " + username2);
+                    clientView.sendErrorMessage(user, "There is no such a user at banned list: " + username2);
             } else
                 clientView.sendErrorMessage(user, "You have to be the owner of the room: " + room);
         }
@@ -248,7 +264,7 @@ public class Server {
             Room room = user.getRoom();
             if (room.getOwner() == user) {
                 room.unbanAll();
-                clientView.sendMessage(user, "All banned clients are unbanned");
+                clientView.sendChatMessage(user, "All banned clients are unbanned");
             } else
                 clientView.sendErrorMessage(user, "You have to be the owner of the room: " + room);
         }
@@ -260,5 +276,51 @@ public class Server {
         else
             clientView.sendErrorMessage(user, "You need to be owner to have access to the banned list: " + user.getRoom());
 
+    }
+
+    public void blockUser(Client client, String s) {
+        synchronized (CLIENT_LOCK) {
+            Room room = client.getRoom();
+            Client blockedUser = room.getUser(s);
+            if (blockedUser == null || blockedUser.getRoom() != room)
+                clientView.sendErrorMessage(client, "User is not in the room: " + s);
+            else
+            {
+                client.block(blockedUser);
+                clientView.sendFeedbackMessage(client, "User is blocked: " + s);
+                clientView.sendChatMessage(blockedUser, "User blocked you: " + client);
+            }
+        }
+    }
+
+    public void unblockUser(Client client, String s) {
+        synchronized (CLIENT_LOCK) {
+            if(client.unblock(s))
+                clientView.sendFeedbackMessage(client, "User is unblocked: " + s);
+            else
+                clientView.sendErrorMessage(client, "User is not in the blocked list: " + s);
+        }
+    }
+
+    public void showBlocked(Client client) {
+        Collection<String> clients = client.blockedUsers();
+        clientView.sendFeedbackMessage(client, "Blocked user list:\n");
+        for (String blocketUser : clients)
+            clientView.sendMessage(client, blocketUser + "\n");
+        clientView.sendFeedbackMessage(client, "End of list:\n");
+    }
+
+    public Client getClient(String username) {
+        return clients.get(username);
+    }
+
+    public void setPrivate(Client client, String status) {
+        client.setAcceptPrivate(status.equalsIgnoreCase("on"));
+        clientView.sendFeedbackMessage(client, "Private messages are: " + status.toUpperCase());
+    }
+
+    public void setAnon(Client client, String status) {
+        client.setAcceptAnon(status.equalsIgnoreCase("on"));
+        clientView.sendFeedbackMessage(client, "Anonymous messages are: " + status.toUpperCase());
     }
 }
